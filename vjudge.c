@@ -4,8 +4,6 @@
 #include <unistd.h>
 #include <getopt.h>
 
-#define MAX_PATH_SIZE 256
-
 static char *test_file_path;
 static char *assert_file_path;
 
@@ -34,9 +32,6 @@ int main(int argc, char *argv[])
     bool test_flag = false;
     bool assert_flag = false;
     bool verbose_flag = false;
-
-    test_file_path = (char *) malloc(MAX_PATH_SIZE * sizeof(char));
-    assert_file_path = (char *) malloc(MAX_PATH_SIZE * sizeof(char));
 
     int opt;
     while ((opt = getopt_long(argc, argv, "t:a:vh", options, NULL)) != -1)
