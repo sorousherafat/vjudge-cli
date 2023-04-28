@@ -1,2 +1,3 @@
-# vjudge-desktop
-automatic judge for verilog HDL.
+# vjudge-cli
+
+a command-line tool for automatic judge of verilog HDL code.
