@@ -4,18 +4,25 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
+
+#define MAX_FILE_NAME_SIZE 128
+#define MAX_PATH_SIZE 256
+#define MAX_ASSERTIONS_NO 1024
+#define MAX_SIGNAL_NAME_SIZE 64
 
 typedef uint64_t timestamp_t;
 
 typedef struct {
-    char *signal_name;
-    char signal_value;
+    char signal_name[MAX_SIGNAL_NAME_SIZE];
+    char expected_value;
     timestamp_t timestamp;
 } assertion_t;
 
 static DIR *tests_dir;
 static assertion_t *assertions;
+static uint32_t assertions_count;
 
 static const char* usage =
     "Usage: vjudge [OPTIONS]... FILE...\n"
@@ -38,7 +45,8 @@ struct option options[] = {
 
 
 int main(int argc, char *argv[])
-{    
+{
+    assertions = (assertion_t *) malloc(MAX_ASSERTIONS_NO * sizeof(assertion_t));
     bool test_flag = false;
     bool verbose_flag = false;
     char *tests_dir_path;
@@ -116,6 +124,39 @@ int main(int argc, char *argv[])
         printf("Tests directory path:   %s\n", tests_dir_path);
         for (int i = optind; i < argc; i++)
             printf("Source file path:       %s\n", argv[i]);
+    }
+
+    assertions_count = 0;
+    FILE *assertion_file;
+    struct dirent *tests_dirent;
+    char *test_name = (char *) malloc(MAX_PATH_SIZE * sizeof(char));
+    char *assertion_file_path = (char *) malloc(MAX_PATH_SIZE * sizeof(char));
+    while ((tests_dirent = readdir(tests_dir)) != NULL)
+    {
+        if (tests_dirent->d_type != DT_REG)
+            continue;
+
+        if (sscanf(tests_dirent->d_name, "%m[^-]-test.v", &test_name) == 1)
+        {
+            snprintf(assertion_file_path, MAX_FILE_NAME_SIZE, "%s/%s-assertion.txt", tests_dir_path, test_name);
+            if ((assertion_file = fopen(assertion_file_path, "r")) == NULL)
+            {
+                fprintf(stderr, "Found '%s/%s' test file but could not open '%s' assertion file", tests_dir_path, tests_dirent->d_name, assertion_file_path);
+                return 1;
+            }
+
+            timestamp_t timestamp;
+            char expected_value;
+            char *signal_name = (char *) malloc(MAX_SIGNAL_NAME_SIZE);
+            while (fscanf(assertion_file, "%ld %[^=]=%c\n", &timestamp, signal_name, &expected_value) != EOF)
+            {
+                assertion_t *assertion = &assertions[assertions_count];
+                assertion->timestamp = timestamp;
+                assertion->expected_value = expected_value;
+                strncpy(assertion->signal_name, signal_name, MAX_SIGNAL_NAME_SIZE);
+                assertions_count += 1;
+            }
+        }
     }
 }
 
