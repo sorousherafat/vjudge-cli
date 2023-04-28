@@ -136,26 +136,26 @@ int main(int argc, char *argv[])
         if (tests_dirent->d_type != DT_REG)
             continue;
 
-        if (sscanf(tests_dirent->d_name, "%m[^-]-test.v", &test_name) == 1)
-        {
-            snprintf(assertion_file_path, MAX_FILE_NAME_SIZE, "%s/%s-assertion.txt", tests_dir_path, test_name);
-            if ((assertion_file = fopen(assertion_file_path, "r")) == NULL)
-            {
-                fprintf(stderr, "Found '%s/%s' test file but could not open '%s' assertion file", tests_dir_path, tests_dirent->d_name, assertion_file_path);
-                return 1;
-            }
+        if (sscanf(tests_dirent->d_name, "%m[^-]-test.v", &test_name) != 1)
+            continue;
 
-            timestamp_t timestamp;
-            char expected_value;
-            char *signal_name = (char *) malloc(MAX_SIGNAL_NAME_SIZE);
-            while (fscanf(assertion_file, "%ld %[^=]=%c\n", &timestamp, signal_name, &expected_value) != EOF)
-            {
-                assertion_t *assertion = &assertions[assertions_count];
-                assertion->timestamp = timestamp;
-                assertion->expected_value = expected_value;
-                strncpy(assertion->signal_name, signal_name, MAX_SIGNAL_NAME_SIZE);
-                assertions_count += 1;
-            }
+        snprintf(assertion_file_path, MAX_FILE_NAME_SIZE, "%s/%s-assertion.txt", tests_dir_path, test_name);
+        if ((assertion_file = fopen(assertion_file_path, "r")) == NULL)
+        {
+            fprintf(stderr, "Found '%s/%s' test file but could not open '%s' assertion file", tests_dir_path, tests_dirent->d_name, assertion_file_path);
+            return 1;
+        }
+
+        timestamp_t timestamp;
+        char expected_value;
+        char *signal_name = (char *) malloc(MAX_SIGNAL_NAME_SIZE);
+        while (fscanf(assertion_file, "%ld %[^=]=%c\n", &timestamp, signal_name, &expected_value) != EOF)
+        {
+            assertion_t *assertion = &assertions[assertions_count];
+            assertion->timestamp = timestamp;
+            assertion->expected_value = expected_value;
+            strncpy(assertion->signal_name, signal_name, MAX_SIGNAL_NAME_SIZE);
+            assertions_count += 1;
         }
     }
 }
