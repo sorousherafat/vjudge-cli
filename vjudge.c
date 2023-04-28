@@ -1,5 +1,6 @@
 #include <dirent.h>
 #include <getopt.h>
+#include <libgen.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -36,13 +37,15 @@ static const char* usage =
     "  -v, --verbose         Print verbose output.\n"
     "  -h, --help            Print this help message and exit.\n";
 
-struct option options[] = {
+static const struct option options[] = {
     {"test",    required_argument, 0, 't'},
     {"verbose", no_argument,       0, 'v'},
     {"help",    no_argument,       0, 'h'},
     {0,         0,                 0,   0}
 };
 
+static const char *out_file_name = ".tmp.o";
+static const char *vcd_file_name = ".tmp.vcd";
 
 int main(int argc, char *argv[])
 {
@@ -131,20 +134,25 @@ int main(int argc, char *argv[])
     struct dirent *tests_dirent;
     char *test_name = (char *) malloc(MAX_PATH_SIZE * sizeof(char));
     char *assertion_file_path = (char *) malloc(MAX_PATH_SIZE * sizeof(char));
+    char command[3 * MAX_FILE_NAME_SIZE + 10];
     while ((tests_dirent = readdir(tests_dir)) != NULL)
     {
         if (tests_dirent->d_type != DT_REG)
             continue;
 
-        if (sscanf(tests_dirent->d_name, "%m[^-]-test.v", &test_name) != 1)
+        /* TODO: I don't know man. */
+        int result = sscanf(tests_dirent->d_name, "%[^-]-test.v", test_name);
+        if (result == 1 && test_name[0] != '\0' && tests_dirent->d_name[result + strlen("-test.v")] != '\0')
             continue;
 
         snprintf(assertion_file_path, MAX_FILE_NAME_SIZE, "%s/%s-assertion.txt", tests_dir_path, test_name);
         if ((assertion_file = fopen(assertion_file_path, "r")) == NULL)
         {
-            fprintf(stderr, "Found '%s/%s' test file but could not open '%s' assertion file", tests_dir_path, tests_dirent->d_name, assertion_file_path);
+            fprintf(stderr, "Found '%s/%s' test file but could not open '%s' assertion file\n", tests_dir_path, tests_dirent->d_name, assertion_file_path);
             return 1;
         }
+
+        assertions_count = 0;
 
         timestamp_t timestamp;
         char expected_value;
@@ -156,6 +164,13 @@ int main(int argc, char *argv[])
             assertion->expected_value = expected_value;
             strncpy(assertion->signal_name, signal_name, MAX_SIGNAL_NAME_SIZE);
             assertions_count += 1;
+        }
+
+        for (int i = optind; i < argc; i++)
+        {
+            char *src_file_path = argv[i];
+            sprintf(command, "%s %s/%s %s -o %s && ./%s", "iverilog", tests_dir_path, tests_dirent->d_name, src_file_path, out_file_name, out_file_name);
+            system(command);
         }
     }
 }
