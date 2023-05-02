@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include "libvcd.h"
 
 #define MAX_FILE_NAME_SIZE 128
 #define MAX_PATH_SIZE 256
