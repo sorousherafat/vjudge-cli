@@ -1,3 +1,9 @@
+# CMake
+cmake-build-debug
+
+# CLion
+.idea
+
 # Vim swap files
 *.swp
 
