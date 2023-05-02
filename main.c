@@ -1,12 +1,11 @@
-#include <dirent.h>
-#include <getopt.h>
-#include <libgen.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <dirent.h>
+#include <getopt.h>
 #include "libvcd.h"
 
 #define MAX_FILE_NAME_SIZE 128
@@ -14,7 +13,6 @@
 #define MAX_ASSERTIONS_NO 1024
 #define MAX_SIGNAL_NAME_SIZE 64
 
-typedef uint64_t timestamp_t;
 
 typedef struct {
     char signal_name[MAX_SIGNAL_NAME_SIZE];
@@ -27,22 +25,22 @@ static assertion_t *assertions;
 static uint32_t assertions_count;
 
 static const char* usage =
-    "Usage: vjudge [OPTIONS]... FILE...\n"
-    "A command-line tool for automatic judge of verilog HDL code.\n"
-    "\n"
-    "Positional arguments:\n"
-    "  FILE...               Paths to source files.\n"
-    "\n"
-    "Optional arguments:\n"
-    "  -t, --test DIR        Path to the tests directory, containing testbenches and assertions (required).\n"
-    "  -v, --verbose         Print verbose output.\n"
-    "  -h, --help            Print this help message and exit.\n";
+        "Usage: vjudge [OPTIONS]... FILE...\n"
+        "A command-line tool for automatic judge of verilog HDL code.\n"
+        "\n"
+        "Positional arguments:\n"
+        "  FILE...               Paths to source files.\n"
+        "\n"
+        "Optional arguments:\n"
+        "  -t, --test DIR        Path to the tests directory, containing testbenches and assertions (required).\n"
+        "  -v, --verbose         Print verbose output.\n"
+        "  -h, --help            Print this help message and exit.\n";
 
 static const struct option options[] = {
-    {"test",    required_argument, 0, 't'},
-    {"verbose", no_argument,       0, 'v'},
-    {"help",    no_argument,       0, 'h'},
-    {0,         0,                 0,   0}
+        {"test",    required_argument, 0, 't'},
+        {"verbose", no_argument,       0, 'v'},
+        {"help",    no_argument,       0, 'h'},
+        {0,         0,                 0,   0}
 };
 
 static const char *out_file_name = ".tmp.o";
@@ -111,7 +109,7 @@ int main(int argc, char *argv[])
     }
 
     /* TODO: Add checks for files in `tests_dir`. */
-    
+
     for (int i = optind; i < argc; i++)
         if (access(argv[i], R_OK) == -1)
         {
@@ -175,4 +173,3 @@ int main(int argc, char *argv[])
         }
     }
 }
-
