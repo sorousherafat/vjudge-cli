@@ -140,7 +140,7 @@ int main(int argc, char *argv[]) {
 }
 
 bool check_files_existence(int argc, char *const *argv, const char *tests_dir_path) {
-    bool files_exist;
+    bool files_exist = true;
     if ((tests_dir = opendir(tests_dir_path)) == NULL) {
         fprintf(stderr, "Could not open tests directory: %s\n", tests_dir_path);
         files_exist = false;
@@ -157,7 +157,7 @@ bool check_files_existence(int argc, char *const *argv, const char *tests_dir_pa
 }
 
 bool check_args_provided(int argc, bool test_flag) {
-    bool args_provided;
+    bool args_provided = true;
     if (!test_flag) {
         fprintf(stderr, "Test directory not provided\n");
         args_provided = false;
