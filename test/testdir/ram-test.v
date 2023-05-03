@@ -1,3 +1,5 @@
+`define WORD_SIZE 8
+
 module testbench;
 
     localparam word_size = `WORD_SIZE;
@@ -31,7 +33,7 @@ module testbench;
 
     initial
     begin
-        $dumpfile("DSD_99105504_Final_Q03.vcd");
+        $dumpfile(".tmp.vcd");
         $dumpvars(0, testbench);
     end
 
