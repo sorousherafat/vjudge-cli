@@ -1,5 +1,4 @@
 #include <stdbool.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,7 +10,6 @@
 #define MAX_NAME_SIZE 128
 #define MAX_ASSERTIONS_NO 1024
 #define MAX_TESTS_NO 64
-#define MAX_SIGNAL_NAME_SIZE 64
 
 typedef struct {
     char *signal_name;
@@ -52,20 +50,20 @@ static const struct option options[] = {
 
 static const char *out_file_name = ".tmp.o";
 static const char *vcd_file_name = ".tmp.vcd";
-bool test_flag = false;
-bool verbose_flag = false;
+static bool test_flag = false;
+static bool verbose_flag = false;
 static DIR *tests_dir;
 static char *tests_dir_path;
 static test_t tests[MAX_TESTS_NO];
 static size_t tests_count = 0;
 
-static void check_args_provided(int argc, bool test_flag);
+static void check_args_provided(int argc);
 
-static void check_files_existence(int argc, char *const *argv, const char *tests_dir_path);
+static void check_files_existence(int argc, char *const *argv);
 
 static void print_input_if_verbose(int argc, char *const *argv);
 
-static void parse_input(int argc, char *argv[], bool *test_flag, bool *verbose_flag);
+static void parse_input(int argc, char *argv[]);
 
 static bool try_get_test_name(char *file_name, char **test_name);
 
@@ -81,63 +79,145 @@ void load_tests();
 
 void read_test_assertions(const struct dirent *tests_dirent, const char *test_name, test_t *test);
 
-void check_input(int argc, char *argv[], bool test_flag);
+void check_input(int argc, char *argv[]);
 
 bool test_exists(const char *test_name);
 
+void test_src_files(int argc, char *const *argv);
+
+void test_src_file(const char *src_file_path);
+
+bool run_test(const char *src_file_path, test_t *test);
+
+void test_clean_up();
+
+void create_vcd_file(const char *src_file_path, const test_t *test);
+
+bool check_assertions(const test_t *test, vcd_t *vcd);
+
+void print_test_passed(const char *src_file_path, const test_t *test);
+
+void print_test_failed(const char *src_file_path, const test_t *test);
+
+void print_failed_assertions_if_verbose(const char *src_file_path, const test_t *test);
+
+bool check_assertion(vcd_t *vcd, assertion_result_t *assertion_result, assertion_t *assertion);
+
+void
+print_assertion_if_failed(const char *src_file_path, const test_t *test, const assertion_result_t *assertion_result);
+
+test_t *read_test(char *test_name);
+
 int main(int argc, char *argv[]) {
-    parse_input(argc, argv, &test_flag, &verbose_flag);
-    check_input(argc, argv, test_flag);
+    parse_input(argc, argv);
+    check_input(argc, argv);
     print_input_if_verbose(argc, argv);
 
     load_tests();
 
-    char command[PATH_MAX];
+    test_src_files(argc, argv);
+}
+
+void test_src_files(int argc, char *const *argv) {
     for (int src_file_index = optind; src_file_index < argc; ++src_file_index) {
         char *src_file_path = argv[src_file_index];
-        size_t passed_tests_count = 0;
-        for (int test_index = 0; test_index < tests_count; ++test_index) {
-            test_t *test = &tests[test_index];
-            sprintf(command, "%s %s/%s-test.v %s -o %s && ./%s > /dev/null", "iverilog", tests_dir_path, test->name,
-                    src_file_path, out_file_name, out_file_name);
-            system(command);
-            vcd_t *vcd = open_vcd((char *) vcd_file_name);
-            bool test_passed = true;
-            for (int assertion_index = 0; assertion_index < test->assertions_count; ++assertion_index) {
-                assertion_result_t *assertion_result = &test->assertion_results[assertion_index];
-                assertion_t *assertion = &assertion_result->assertion;
-                assertion_result->actual_value = get_value_from_vcd(vcd, assertion->signal_name, assertion->timestamp);
-                if (strcmp(assertion_result->actual_value, assertion->expected_value) == 0) {
-                    assertion_result->passed = true;
-                } else {
-                    assertion_result->passed = false;
-                    test_passed = false;
-                }
-            }
-            if (test_passed) {
-                passed_tests_count += 1;
-                printf("Test '%s' passed for src file '%s'\n", test->name, src_file_path);
-            } else {
-                printf("Test '%s' failed for src file '%s'\n", test->name, src_file_path);
-                if (verbose_flag) {
-                    for (int assertion_index = 0; assertion_index < test->assertions_count; ++assertion_index) {
-                        assertion_result_t *assertion_result = &test->assertion_results[assertion_index];
-                        if (!assertion_result->passed) {
-                            printf("Assertion failed on test '%s' for src file '%s': Expected '%s' but got '%s'\n",
-                                   test->name, src_file_path, assertion_result->assertion.expected_value,
-                                   assertion_result->actual_value);
-                        }
-                    }
-                }
-            }
-        }
-        printf("src file '%s': %zu/%zu tests passed\n", src_file_path, passed_tests_count, tests_count);
+        test_src_file(src_file_path);
     }
 }
 
-void check_input(int argc, char *argv[], bool test_flag) {
-    check_args_provided(argc, test_flag);
-    check_files_existence(argc, argv, tests_dir_path);
+void test_src_file(const char *src_file_path) {
+    size_t passed_tests_count = 0;
+    for (int test_index = 0; test_index < tests_count; ++test_index) {
+        test_t *test = &tests[test_index];
+        passed_tests_count += run_test(src_file_path, test);
+        test_clean_up();
+    }
+    printf("src file '%s': %zu/%zu tests passed\n", src_file_path, passed_tests_count, tests_count);
+}
+
+void test_clean_up() {
+    remove(out_file_name);
+    remove(vcd_file_name);
+}
+
+void create_vcd_file(const char *src_file_path, const test_t *test) {
+    char command[PATH_MAX];
+    sprintf(command, "%s %s/%s-test.v %s -o %s && ./%s > /dev/null", "iverilog", tests_dir_path, test->name,
+            src_file_path, out_file_name, out_file_name);
+    system(command);
+}
+
+bool check_assertion(vcd_t *vcd, assertion_result_t *assertion_result, assertion_t *assertion) {
+    assertion_result->actual_value = get_value_from_vcd(vcd, assertion->signal_name, assertion->timestamp);
+    if (strcmp(assertion_result->actual_value, assertion->expected_value) == 0) {
+        assertion_result->passed = true;
+        return true;
+    }
+
+    assertion_result->passed = false;
+    return false;
+}
+
+bool check_assertions(const test_t *test, vcd_t *vcd) {
+    bool test_passed = true;
+    for (int assertion_index = 0; assertion_index < test->assertions_count; ++assertion_index) {
+        assertion_result_t *assertion_result = (assertion_result_t *) &test->assertion_results[assertion_index];
+        assertion_t *assertion = &assertion_result->assertion;
+        test_passed &= check_assertion(vcd, assertion_result, assertion);
+    }
+    return test_passed;
+}
+
+bool run_test(const char *src_file_path, test_t *test) {
+    create_vcd_file(src_file_path, test);
+
+    vcd_t *vcd = open_vcd((char *) vcd_file_name);
+    if (vcd == NULL) {
+        fprintf(stderr, "An error occurred when opening .vcd file '%s'", vcd_file_name);
+        exit(EXIT_FAILURE);
+    }
+
+    bool test_passed = check_assertions(test, vcd);
+
+    if (test_passed) {
+        print_test_passed(src_file_path, test);
+    } else {
+        print_test_failed(src_file_path, test);
+        print_failed_assertions_if_verbose(src_file_path, test);
+    }
+
+    return test_passed;
+}
+
+void print_failed_assertions_if_verbose(const char *src_file_path, const test_t *test) {
+    if (!verbose_flag) return;
+
+    for (int assertion_index = 0; assertion_index < test->assertions_count; ++assertion_index) {
+        const assertion_result_t *assertion_result = &test->assertion_results[assertion_index];
+        print_assertion_if_failed(src_file_path, test, assertion_result);
+    }
+}
+
+void
+print_assertion_if_failed(const char *src_file_path, const test_t *test, const assertion_result_t *assertion_result) {
+    if (!assertion_result->passed) {
+        printf("Assertion failed on test '%s' for src file '%s': Expected '%s' but got '%s'\n",
+               test->name, src_file_path, assertion_result->assertion.expected_value,
+               assertion_result->actual_value);
+    }
+}
+
+void print_test_failed(const char *src_file_path, const test_t *test) {
+    printf("Test '%s' failed for src file '%s'\n", test->name, src_file_path);
+}
+
+void print_test_passed(const char *src_file_path, const test_t *test) {
+    printf("Test '%s' passed for src file '%s'\n", test->name, src_file_path);
+}
+
+void check_input(int argc, char *argv[]) {
+    check_args_provided(argc);
+    check_files_existence(argc, argv);
 }
 
 void load_tests() {
@@ -153,13 +233,18 @@ void load_tests() {
         if (test_exists(test_name))
             continue;
 
-        test_t *test = &tests[tests_count];
-        test->name = test_name;
-        test->assertions_count = 0;
-        tests_count += 1;
+        test_t *test = read_test(test_name);
 
         read_test_assertions(tests_dirent, test_name, test);
     }
+}
+
+test_t *read_test(char *test_name) {
+    test_t *test = &tests[tests_count];
+    test->name = test_name;
+    test->assertions_count = 0;
+    tests_count += 1;
+    return test;
 }
 
 bool test_exists(const char *test_name) {
@@ -219,16 +304,16 @@ FILE *open_assertion_file(const struct dirent *tests_dirent, const char *asserti
     return assertion_file;
 }
 
-void parse_input(int argc, char *argv[], bool *test_flag, bool *verbose_flag) {
+void parse_input(int argc, char *argv[]) {
     int opt;
     while ((opt = getopt_long(argc, argv, "t:vh", options, NULL)) != -1) {
         switch (opt) {
             case 't':
-                (*test_flag) = true;
+                test_flag = true;
                 tests_dir_path = optarg;
                 break;
             case 'v':
-                (*verbose_flag) = true;
+                verbose_flag = true;
                 break;
             case 'h':
                 printf("%s", usage);
@@ -254,14 +339,12 @@ void print_input_if_verbose(int argc, char *const *argv) {
         printf("Source file path:       %s\n", argv[i]);
 }
 
-void check_files_existence(int argc, char *const *argv, const char *tests_dir_path) {
+void check_files_existence(int argc, char *const *argv) {
     bool files_exist = true;
     if ((tests_dir = opendir(tests_dir_path)) == NULL) {
         fprintf(stderr, "Could not open tests directory: %s\n", tests_dir_path);
         files_exist = false;
     }
-
-    /* TODO: Add checks for files in `tests_dir`. */
 
     for (int i = optind; i < argc; i++)
         if (access(argv[i], R_OK) == -1) {
@@ -275,7 +358,7 @@ void check_files_existence(int argc, char *const *argv, const char *tests_dir_pa
     }
 }
 
-void check_args_provided(int argc, bool test_flag) {
+void check_args_provided(int argc) {
     bool args_provided = true;
     if (!test_flag) {
         fprintf(stderr, "Test directory not provided\n");
