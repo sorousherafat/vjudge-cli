@@ -42,10 +42,10 @@ static const char *usage =
         "  -h, --help            Print this help message and exit.\n";
 
 static const struct option options[] = {
-        {"test",    required_argument, 0, 't'},
-        {"verbose", no_argument,       0, 'v'},
-        {"help",    no_argument,       0, 'h'},
-        {0, 0,                         0, 0}
+        {"test", required_argument, 0, 't'},
+        {"verbose", no_argument,    0, 'v'},
+        {"help", no_argument,       0, 'h'},
+        {0, 0,                      0, 0}
 };
 
 static const char *out_file_name = ".tmp.o";
@@ -108,6 +108,8 @@ print_assertion_if_failed(const char *src_file_path, const test_t *test, const a
 
 test_t *read_test(char *test_name);
 
+void print_src_report(const char *src_file_path, size_t passed_tests_count);
+
 int main(int argc, char *argv[]) {
     parse_input(argc, argv);
     check_input(argc, argv);
@@ -132,7 +134,12 @@ void test_src_file(const char *src_file_path) {
         passed_tests_count += run_test(src_file_path, test);
         test_clean_up();
     }
-    printf("src file '%s': %zu/%zu tests passed\n", src_file_path, passed_tests_count, tests_count);
+    print_src_report(src_file_path, passed_tests_count);
+}
+
+void
+print_src_report(const char *src_file_path, size_t passed_tests_count) {
+    printf("src file '%s': %zu/%zu tests passed\n\n", src_file_path, passed_tests_count, tests_count);
 }
 
 void test_clean_up() {
