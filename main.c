@@ -58,9 +58,9 @@ static char *tests_dir_path;
 static test_t tests[MAX_TESTS_NO];
 static size_t tests_count = 0;
 
-static bool check_args_provided(int argc, bool test_flag);
+static void check_args_provided(int argc, bool test_flag);
 
-static bool check_files_existence_and_print_error(int argc, char *const *argv, const char *tests_dir_path);
+static void check_files_existence(int argc, char *const *argv, const char *tests_dir_path);
 
 static void print_input(int argc, char *const *argv);
 
@@ -76,53 +76,55 @@ static void read_assertions(test_t *test, FILE *assertion_file);
 
 static void write_assertion(test_t *test, timestamp_t timestamp, char *expected_value, char *signal_name);
 
+void load_tests();
+
+void read_test_assertions(const struct dirent *tests_dirent, const char *test_name, test_t *test);
+
+void check_input(int argc, char *argv[], bool test_flag);
+
 int main(int argc, char *argv[]) {
     bool test_flag = false;
     bool verbose_flag = false;
     parse_input(argc, argv, &test_flag, &verbose_flag);
-
-    bool args_provided = check_args_provided(argc, test_flag);
-    if (!args_provided) {
-        fprintf(stderr, "\n%s", usage);
-        return 1;
-    }
-
-    bool files_exist = check_files_existence_and_print_error(argc, argv, tests_dir_path);
-    if (!files_exist)
-        return 1;
-
+    check_input(argc, argv, test_flag);
     if (verbose_flag) {
         print_input(argc, argv);
     }
 
+    load_tests();
+
+    char command[PATH_MAX];
+}
+
+void check_input(int argc, char *argv[], bool test_flag) {
+    check_args_provided(argc, test_flag);
+    check_files_existence(argc, argv, tests_dir_path);
+}
+
+void load_tests() {
     struct dirent *tests_dirent;
     while ((tests_dirent = readdir(tests_dir)) != NULL) {
         if (tests_dirent->d_type != DT_REG)
             continue;
 
-        /* TODO: I don't know man. */
         char *test_name;
-        bool is_test = try_get_test_name(tests_dirent->d_name, &test_name);
-        if (!is_test)
+        if (!try_get_test_name(tests_dirent->d_name, &test_name))
             continue;
 
         test_t *test = &tests[tests_count];
         test->test_name = test_name;
         test->assertions_count = 0;
 
-        char *assertion_file_path = (char *) malloc(PATH_MAX * sizeof(char));
-        write_assertion_file_path(assertion_file_path, test_name);
-
-        FILE *assertion_file = open_assertion_file(tests_dirent, assertion_file_path);
-        read_assertions(test, assertion_file);
+        read_test_assertions(tests_dirent, test_name, test);
     }
+}
 
-//    for (int i = optind; i < argc; i++) {
-//        char *src_file_path = argv[i];
-//        sprintf(command, "%s %s/%s %s -o %s && ./%s", "iverilog", tests_dir_path, tests_dirent->d_name,
-//                src_file_path, out_file_name, out_file_name);
-//        system(command);
-//    }
+void read_test_assertions(const struct dirent *tests_dirent, const char *test_name, test_t *test) {
+    char *assertion_file_path = (char *) malloc(PATH_MAX * sizeof(char));
+    write_assertion_file_path(assertion_file_path, test_name);
+
+    FILE *assertion_file = open_assertion_file(tests_dirent, assertion_file_path);
+    read_assertions(test, assertion_file);
 }
 
 void read_assertions(test_t *test, FILE *assertion_file) {
@@ -196,7 +198,7 @@ void print_input(int argc, char *const *argv) {
         printf("Source file path:       %s\n", argv[i]);
 }
 
-bool check_files_existence_and_print_error(int argc, char *const *argv, const char *tests_dir_path) {
+void check_files_existence(int argc, char *const *argv, const char *tests_dir_path) {
     bool files_exist = true;
     if ((tests_dir = opendir(tests_dir_path)) == NULL) {
         fprintf(stderr, "Could not open tests directory: %s\n", tests_dir_path);
@@ -210,10 +212,14 @@ bool check_files_existence_and_print_error(int argc, char *const *argv, const ch
             fprintf(stderr, "Could not open source file: %s\n", argv[i]);
             files_exist = false;
         }
-    return files_exist;
+
+    if (!files_exist) {
+        fprintf(stderr, "\n%s", usage);
+        exit(EXIT_FAILURE);
+    }
 }
 
-bool check_args_provided(int argc, bool test_flag) {
+void check_args_provided(int argc, bool test_flag) {
     bool args_provided = true;
     if (!test_flag) {
         fprintf(stderr, "Test directory not provided\n");
@@ -224,7 +230,11 @@ bool check_args_provided(int argc, bool test_flag) {
         fprintf(stderr, "No source files were provided\n");
         args_provided = false;
     }
-    return args_provided;
+
+    if (!args_provided) {
+        fprintf(stderr, "\n%s", usage);
+        exit(EXIT_FAILURE);
+    }
 }
 
 bool try_get_test_name(char *file_name, char **test_name) {
