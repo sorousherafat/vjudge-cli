@@ -1,3 +1,6 @@
+# Temp .vcd file
+.tmp.vcd
+
 # CMake
 cmake-build-debug
 
