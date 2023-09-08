@@ -1,3 +1,9 @@
+# Compile commands for clangd
+compile_commands.json
+
+# clangd cache
+.cache
+
 # Temp .vcd file
 .tmp.vcd
 
