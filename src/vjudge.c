@@ -16,7 +16,7 @@ static const char *const usage =
     "A command-line tool for automatic judge of verilog HDL code.\n"
     "\n"
     "Optional arguments:\n"
-    "  -t, --test DIR        Path to the tests directory, containing testbenches and assertions (required).\n"
+    "  -t, --test DIR        Path to the test directory, containing testbenches and assertions (required).\n"
     "  -s, --src DIR         Path to the src directory, containing the src files to judge (required).\n"
     "  -h, --help            Print this help message and exit.\n";
 
