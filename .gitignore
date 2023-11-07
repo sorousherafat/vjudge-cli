@@ -1,26 +1,14 @@
+# Visual Studio Code
+.vscode
+
+# Build output
+build/*
+
 # Compile commands for clangd
 compile_commands.json
 
 # clangd cache
 .cache
-
-# Temp .vcd file
-.tmp.vcd
-
-# CMake
-cmake-build-debug
-
-# CLion
-.idea
-
-# Vim swap files
-*.swp
-
-# Hidden test directory
-.test
-
-# Binary output
-vjudge
 
 # Prerequisites
 *.d
@@ -74,3 +62,9 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+# CLion
+.idea
+
+# CMake Build Debug
+cmake-build-debug
