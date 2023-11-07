@@ -21,7 +21,13 @@ $(BUILD_DIR)/%.a: $(SOURCES) | $(BUILD_DIR)
 $(BUILD_DIR):
 	mkdir -p $@
 
+install: all
+	install -m 755 $(EXECUTABLE) /usr/local/bin/
+
+uninstall:
+	rm -f /usr/local/bin/vjudges
+
 clean:
 	rm -rf $(BUILD_DIR)
 
-.PHONY: all clean
+.PHONY: all install uninstall clean
