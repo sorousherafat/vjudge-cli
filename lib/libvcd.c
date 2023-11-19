@@ -11,11 +11,17 @@
 
 #define BUFFER_LENGTH 512
 
+typedef enum {
+    BEFORE_MODULE_DEFINITIONS,
+    INSIDE_TOP_MODULE,
+    INSIDE_INNER_MODULES
+} state_t;
+
 vcd_t *new_vcd();
 
-bool parse_instruction(FILE *file, vcd_t *vcd);
+bool parse_instruction(FILE *file, vcd_t *vcd, state_t *state);
 
-bool parse_timestamp(FILE *file, __attribute__((unused)) vcd_t *vcd, timestamp_t *timestamp);
+bool parse_timestamp(FILE *file, timestamp_t *timestamp);
 
 bool parse_assignment(FILE *file, vcd_t *vcd, timestamp_t timestamp);
 
@@ -32,17 +38,18 @@ vcd_t *libvcd_read_vcd_from_path(char *path) {
 
     vcd_t *vcd = new_vcd();
     timestamp_t current_timestamp = 0;
+    state_t state = BEFORE_MODULE_DEFINITIONS;
 
     int character = 0;
     while ((character = fgetc(file)) != EOF) {
         if (character == '$') {
-            bool successful = parse_instruction(file, vcd);
+            bool successful = parse_instruction(file, vcd, &state);
             if (successful)
                 continue;
         }
 
         else if (character == '#') {
-            bool successful = parse_timestamp(file, vcd, &current_timestamp);
+            bool successful = parse_timestamp(file, &current_timestamp);
             if (successful)
                 continue;
         }
@@ -76,7 +83,7 @@ char *libvcd_get_signal_value(vcd_t *vcd, char *signal_name, timestamp_t timesta
 
 vcd_t *new_vcd() { return (vcd_t *)calloc(1, sizeof(vcd_t)); }
 
-bool parse_instruction(FILE *file, vcd_t *vcd) {
+bool parse_instruction(FILE *file, vcd_t *vcd, state_t *state) {
     char instruction[BUFFER_LENGTH];
     if (fscanf(file, "%s", instruction) != 1)
         return false;
@@ -85,6 +92,21 @@ bool parse_instruction(FILE *file, vcd_t *vcd) {
 	strcmp(instruction, "dumpall") == 0)
         return true;
 
+    if (strcmp(instruction, "scope") == 0) {
+        switch (*state) {
+        case BEFORE_MODULE_DEFINITIONS:
+            *state = INSIDE_TOP_MODULE;
+	    break;
+	case INSIDE_TOP_MODULE:
+	    *state = INSIDE_INNER_MODULES;
+	    break;
+	default:
+	    break;
+        }
+        fscanf(file, "\n%*[^$]");
+	return true;
+    }
+
     if (strcmp(instruction, "scope") == 0 || strcmp(instruction, "upscope") == 0 ||
         strcmp(instruction, "enddefinitions") == 0 || strcmp(instruction, "comment") == 0) {
         fscanf(file, "\n%*[^$]");
@@ -92,6 +114,11 @@ bool parse_instruction(FILE *file, vcd_t *vcd) {
     }
 
     if (strcmp(instruction, "var") == 0) {
+        if (*state == INSIDE_INNER_MODULES) {
+            fscanf(file, " %*[^\n]\n");
+	    return true;
+	}
+
         signal_t *signal = &vcd->signals[vcd->signals_count];
         vcd->signals_count += 1;
 
@@ -124,7 +151,7 @@ bool parse_instruction(FILE *file, vcd_t *vcd) {
     return false;
 }
 
-bool parse_timestamp(FILE *file, vcd_t *vcd, timestamp_t *timestamp) {
+bool parse_timestamp(FILE *file, timestamp_t *timestamp) {
     bool successful = fscanf(file, "%u", timestamp) == 1;
     return successful;
 }
@@ -140,7 +167,14 @@ bool parse_assignment(FILE *file, vcd_t *vcd, timestamp_t timestamp) {
     if (sscanf(buffer, assignment_format_string, value, signal_id) != 2)
         return false;
 
+    /* For now, we ignore longer signal ids. */
+    if (strlen(signal_id) > 1)
+        return true;
+
     size_t index = get_signal_index(signal_id);
+    if (index == -1 || index >= vcd->signals_count)
+        return true;
+
     size_t changes_count = vcd->signals[index].changes_count;
     vcd->signals[index].value_changes[changes_count].timestamp = timestamp;
     strncpy(vcd->signals[index].value_changes[changes_count].value, value, LIBVCD_SIGNAL_SIZE);

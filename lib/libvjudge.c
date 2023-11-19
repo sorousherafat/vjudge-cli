@@ -12,8 +12,8 @@
 
 #include <libvjudge.h>
 
-static const char *const out_file_name = ".tmp.o";
-static const char *const vcd_file_name = ".tmp.vcd";
+static const char *out_file_name = ".tmp.o";
+static const char *vcd_file_name = ".tmp.vcd";
 
 void check_files_existence(judge_input_t *judge_input, DIR **src_dir, DIR **test_dir, judge_result_t *judge_result);
 
@@ -70,7 +70,7 @@ void run_judge(judge_input_t *judge_input, judge_result_t *judge_result) {
     judge_result->tests_count = 0;
     judge_result->passed_tests_count = 0;
 
-    DIR *src_dir = NULL, *test_dir = NULL;
+    DIR *src_dir, *test_dir;
     check_files_existence(judge_input, &src_dir, &test_dir, judge_result);
     if (judge_result->error != VJUDGE_NO_ERROR)
         return;
@@ -87,8 +87,9 @@ void run_judge(judge_input_t *judge_input, judge_result_t *judge_result) {
     if (judge_result->error != VJUDGE_NO_ERROR)
         return;
 
+    int src_files_count;
     char *src_file_paths[VJUDGE_MAX_SRC_FILES_NO];
-    int src_files_count = load_srcs(src_dir_path, src_dir, src_file_paths, judge_result);
+    src_files_count = load_srcs(src_dir_path, src_dir, src_file_paths, judge_result);
     if (judge_result->error != VJUDGE_NO_ERROR)
         return;
 
@@ -120,7 +121,7 @@ char *get_real_path(char *path, judge_result_t *judge_result, error_t error) {
 }
 
 void load_tests(char *test_dir_path, DIR *test_dir, judge_result_t *judge_result) {
-    struct dirent *tests_dirent = NULL;
+    struct dirent *tests_dirent;
     while ((tests_dirent = readdir(test_dir)) != NULL) {
         char test_file_path[PATH_MAX];
         snprintf(test_file_path, sizeof(test_file_path), "%s/%s", test_dir_path, tests_dirent->d_name);
@@ -134,7 +135,7 @@ void load_tests(char *test_dir_path, DIR *test_dir, judge_result_t *judge_result
         if (S_ISDIR(test_stat.st_mode))
             continue;
 
-        char *test_name = NULL;
+        char *test_name;
         if (!try_get_test_name(tests_dirent->d_name, &test_name))
             continue;
 
@@ -195,7 +196,7 @@ void write_assertion_file_path(char *assertion_file_path, const char *test_name,
 
 FILE *open_assertion_file(const struct dirent *tests_dirent, const char *assertion_file_path,
                           judge_result_t *judge_result) {
-    FILE *assertion_file = NULL;
+    FILE *assertion_file;
     if ((assertion_file = fopen(assertion_file_path, "r")) == NULL) {
         set_judge_error(judge_result, VJUDGE_ERROR_ASSERTIONS_FILE_NOT_EXISTS);
         return NULL;
@@ -205,10 +206,10 @@ FILE *open_assertion_file(const struct dirent *tests_dirent, const char *asserti
 }
 
 void read_assertions(test_t *test, FILE *assertion_file, judge_result_t *judge_result) {
-    timestamp_t timestamp = 0;
-    char *expected_value = NULL;
-    char *signal_name = NULL;
-    int result = 0;
+    timestamp_t timestamp;
+    char *expected_value;
+    char *signal_name;
+    int result;
     while ((result = fscanf(assertion_file, "%d %m[^=]=%m[^\n]\n", &timestamp, &signal_name, &expected_value)) != EOF) {
         if (result != 3) {
             set_judge_error(judge_result, VJUDGE_ERROR_ASSERTIONS_FILE_WRONG_FORMAT);
@@ -230,7 +231,7 @@ void read_assertion(test_t *test, timestamp_t timestamp, char *expected_value, c
 }
 
 int load_srcs(const char *src_dir_path, DIR *src_dir, char *src_files_paths[], judge_result_t *judge_result) {
-    struct dirent *src_dirent = NULL;
+    struct dirent *src_dirent;
     size_t src_files_count = 0;
     while ((src_dirent = readdir(src_dir)) != NULL) {
         char src_file_path[PATH_MAX];
@@ -301,7 +302,10 @@ char *create_temp_dir(judge_result_t *judge_result) {
         return NULL;
     }
 
-    return temp_dir_path;
+    char *result = (char *)malloc((strlen(temp_dir_path) + 1) * sizeof(char));
+    strcpy(result, temp_dir_path);
+
+    return result;
 }
 
 bool run_test(const char *test_dir_path, size_t src_files_count, char *src_file_paths[], const char *temp_dir_path,
