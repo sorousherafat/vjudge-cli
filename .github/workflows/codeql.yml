@@ -79,8 +79,8 @@ jobs:
     - if: matrix.build-mode == 'manual'
       shell: bash
       run: |
-        git clone https://github.com/sorousherafat/libvcd.git && cd libvcd && make && sudo make install
-        git clone https://github.com/sorousherafat/libvjudge.git && cd libvjudge && make && sudo make install
+        git clone https://github.com/sorousherafat/libvcd.git && make -C libvcd && sudo make -C libvcd install
+        git clone https://github.com/sorousherafat/libvjudge.git && make -C libvjudge && sudo make -C libvjudge install
         make
 
     - name: Perform CodeQL Analysis
