@@ -81,6 +81,7 @@ jobs:
       run: |
         git clone https://github.com/sorousherafat/libvcd.git && cd libvcd && make && sudo make install
         git clone https://github.com/sorousherafat/libvjudge.git && cd libvjudge && make && sudo make install
+        make
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3
