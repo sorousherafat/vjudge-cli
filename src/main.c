@@ -2,14 +2,14 @@
 
 #include <dirent.h>
 #include <getopt.h>
-#include <libvcd.h>
-#include <libvjudge.h>
 #include <linux/limits.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <vcd.h>
+#include <vjudge.h>
 
 static const char *const usage =
     "Usage: vjudge [OPTIONS]...\n"
@@ -41,7 +41,7 @@ int main(int argc, char *argv[]) {
     check_args_provided(argc);
     judge_input_t input = {.test_dir_path = test_dir_path, .src_dir_path = src_dir_path};
     judge_result_t result;
-    run_judge(&input, &result);
+    vjudge_run(&input, &result);
     print_judge_result(&result);
 }
 
@@ -94,11 +94,11 @@ void print_judge_result(judge_result_t *result) {
 
     bool passed = result->passed;
     printf("Passed: %s\n", passed ? "True" : "False");
-    
+
     size_t passed_tests_count = result->passed_tests_count;
     size_t tests_count = result->tests_count;
     printf("Passed Tests: %zu/%zu\n", passed_tests_count, tests_count);
-    
+
     test_t *tests = result->tests;
     printf("Tests:\n");
     for (size_t i = 0; i < tests_count; i++) {
